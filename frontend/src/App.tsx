@@ -10,7 +10,8 @@ import { Badge } from './components/ui/badge';
 import { ImageWithFallback } from './components/figma/ImageWithFallback';
 import varnikaLogo from 'figma:asset/5b309230f699c8cd589799542daefe756406677e.png';
 import backgroundImage from 'figma:asset/f865fe46b7f602ddc489cac1f1fca444b9fce593.png';
-import { Heart, ShoppingCart, Upload, Plus, Minus, Play, User, Package, Info, Home, LogOut } from 'lucide-react';
+import { Heart, ShoppingCart, Upload, Plus, Minus, Play, User, Package, Info, Home, LogOut, Loader2 } from 'lucide-react';
+import { apiService, Product as ApiProduct } from './services/api';
 
 type UserType = 'seller' | 'buyer' | null;
 
@@ -38,6 +39,13 @@ const App = () => {
   const [isListening, setIsListening] = useState(false);
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [enhancedImageUrl, setEnhancedImageUrl] = useState<string | null>(null);
+  const [isEnhancingImage, setIsEnhancingImage] = useState(false);
 
   const categories = [
     { name: 'Pottery', image: 'https://images.unsplash.com/photo-1695746999130-17bc94e000e8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3R0ZXJ5JTIwaGFuZGljcmFmdCUyMGNlcmFtaWN8ZW58MXx8fHwxNzU4MjAyOTM0fDA&ixlib=rb-4.1.0&q=80&w=300' },
@@ -50,16 +58,33 @@ const App = () => {
     { name: 'Metalwork', image: 'https://images.unsplash.com/photo-1638256049300-d5fbdae0e8c7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtZXRhbCUyMGhhbmRpY3JhZnQlMjBjcmFmdHxlbnwxfHx8fDE3NTgyMDI5Mzd8MA&ixlib=rb-4.1.0&q=80&w=300' }
   ];
 
-  const products: Product[] = [
-    { id: 1, name: 'Handcrafted Ceramic Vase', price: 85, description: 'Beautiful handmade ceramic vase with traditional glazing techniques', image: 'https://images.unsplash.com/photo-1695746999130-17bc94e000e8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3R0ZXJ5JTIwaGFuZGljcmFmdCUyMGNlcmFtaWN8ZW58MXx8fHwxNzU4MjAyOTM0fDA&ixlib=rb-4.1.0&q=80&w=400', category: 'Pottery', seller: 'Maya Crafts' },
-    { id: 2, name: 'Woven Cotton Scarf', price: 45, description: 'Soft cotton scarf with intricate woven patterns', image: 'https://images.unsplash.com/photo-1719462211900-3d4c1a62cae4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZXh0aWxlJTIwd2VhdmluZyUyMGhhbmRpY3JhZnR8ZW58MXx8fHwxNzU4MjAyOTM1fDA&ixlib=rb-4.1.0&q=80&w=400', category: 'Textiles', seller: 'Heritage Weavers' },
-    { id: 3, name: 'Carved Wooden Bowl', price: 65, description: 'Hand-carved wooden bowl made from sustainable wood', image: 'https://images.unsplash.com/photo-1603789766884-aef036cd3b5a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b29kd29yayUyMGhhbmRpY3JhZnQlMjBjYXJ2aW5nfGVufDF8fHx8MTc1ODIwMjkzNXww&ixlib=rb-4.1.0&q=80&w=400', category: 'Woodwork', seller: 'Forest Artisans' },
-    { id: 4, name: 'Silver Filigree Earrings', price: 120, description: 'Delicate silver earrings with traditional filigree work', image: 'https://images.unsplash.com/photo-1717917197052-fda91a7e003c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxqZXdlbHJ5JTIwaGFuZGljcmFmdCUyMHRyYWRpdGlvbmFsfGVufDF8fHx8MTc1ODIwMjkzNnww&ixlib=rb-4.1.0&q=80&w=400', category: 'Jewelry', seller: 'Precious Craft Co.' },
-    { id: 5, name: 'Embroidered Wall Hanging', price: 95, description: 'Traditional embroidered wall art with vibrant colors', image: 'https://images.unsplash.com/photo-1657470036063-c7e49da31393?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbWJyb2lkZXJ5JTIwaGFuZGljcmFmdCUyMHRleHRpbGV8ZW58MXx8fHwxNzU4MjAyOTM2fDA&ixlib=rb-4.1.0&q=80&w=400', category: 'Embroidery', seller: 'Needle Arts Studio' },
-    { id: 6, name: 'Woven Basket Set', price: 55, description: 'Set of three handwoven baskets in different sizes', image: 'https://images.unsplash.com/photo-1617191598003-fa321e7e425b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYXNrZXQlMjB3ZWF2aW5nJTIwaGFuZGljcmFmdHxlbnwxfHx8fDE3NTgyMDI5MzZ8MA&ixlib=rb-4.1.0&q=80&w=400', category: 'Basketry', seller: 'Weave Masters' },
-    { id: 7, name: 'Handmade Leather Bag', price: 110, description: 'Genuine leather bag with traditional stitching', image: 'https://images.unsplash.com/photo-1543874835-ad7d64196a07?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsZWF0aGVyJTIwaGFuZGljcmFmdCUyMHRyYWRpdGlvbmFsfGVufDF8fHx8MTc1ODIwMjkzN3ww&ixlib=rb-4.1.0&q=80&w=400', category: 'Leather', seller: 'Craftsman Guild' },
-    { id: 8, name: 'Copper Metal Bowl', price: 75, description: 'Hand-forged copper bowl with intricate patterns', image: 'https://images.unsplash.com/photo-1638256049300-d5fbdae0e8c7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtZXRhbCUyMGhhbmRpY3JhZnQlMjBjcmFmdHxlbnwxfHx8fDE3NTgyMDI5Mzd8MA&ixlib=rb-4.1.0&q=80&w=400', category: 'Metalwork', seller: 'Metal Artists Co.' }
-  ];
+  // Load products from API
+  const loadProducts = async (category?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.getProducts(category);
+      if (response.success && response.data) {
+        const apiProducts = response.data.products.map((apiProduct: ApiProduct) => ({
+          id: apiProduct.product_id,
+          name: apiProduct.name,
+          price: apiProduct.price,
+          description: apiProduct.description_text || apiProduct.description || '',
+          image: apiProduct.image_url || '',
+          category: apiProduct.category || 'General',
+          seller: apiProduct.artisan_name || 'Unknown Artisan'
+        }));
+        setProducts(apiProducts);
+      } else {
+        setError(response.error || 'Failed to load products');
+      }
+    } catch (err) {
+      setError('Failed to load products');
+      console.error('Error loading products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stories = [
     {
@@ -136,9 +161,12 @@ const App = () => {
     navigate('/');
   };
 
-  const filteredProducts = selectedCategory 
-    ? products.filter(product => product.category === selectedCategory)
-    : products;
+  // Load products when category changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadProducts(selectedCategory || undefined);
+    }
+  }, [selectedCategory, isLoggedIn]);
 
   const renderNavigation = () => {
     const pathname = location.pathname;
@@ -396,40 +424,70 @@ const App = () => {
           <h2 className="text-xl md:text-3xl mb-4 md:mb-6 text-[#0A2647]">
             {selectedCategory ? `${selectedCategory} Products` : 'Featured Products'}
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="h-40 md:h-48 overflow-hidden">
-                  <ImageWithFallback 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <CardContent className="p-3 md:p-4">
-                  <h3 className="text-base md:text-lg text-[#0A2647] mb-2 line-clamp-1">{product.name}</h3>
-                  <p className="text-[#144272] text-xs md:text-sm mb-3 line-clamp-2">{product.description}</p>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-lg md:text-2xl text-[#205295] font-bold">${product.price}</span>
-                    <Badge variant="secondary" className="bg-[#2C74B3] text-white text-xs">
-                      {product.category}
-                    </Badge>
+          
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-[#205295]" />
+              <span className="ml-2 text-[#144272]">Loading products...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-600 mb-4">{error}</p>
+              <Button 
+                onClick={() => loadProducts(selectedCategory || undefined)}
+                className="bg-[#205295] hover:bg-[#144272]"
+              >
+                Try Again
+              </Button>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="w-16 h-16 mx-auto mb-4 text-[#205295]" />
+              <p className="text-[#144272] text-lg">No products found</p>
+              {userType === 'seller' && (
+                <Link to="/add-product">
+                  <Button className="mt-4 bg-[#205295] hover:bg-[#144272]">
+                    Add Your First Product
+                  </Button>
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              {products.map((product) => (
+                <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                  <div className="h-40 md:h-48 overflow-hidden">
+                    <ImageWithFallback 
+                      src={product.image} 
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <p className="text-xs md:text-sm text-[#144272] mb-3">by {product.seller}</p>
-                  {userType === 'buyer' && (
-                    <Button 
-                      onClick={() => addToCart(product)}
-                      className="w-full bg-[#205295] hover:bg-[#144272] text-xs md:text-sm"
-                      size="sm"
-                    >
-                      <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
-                      Add to Cart
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <CardContent className="p-3 md:p-4">
+                    <h3 className="text-base md:text-lg text-[#0A2647] mb-2 line-clamp-1">{product.name}</h3>
+                    <p className="text-[#144272] text-xs md:text-sm mb-3 line-clamp-2">{product.description}</p>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-lg md:text-2xl text-[#205295] font-bold">${product.price}</span>
+                      <Badge variant="secondary" className="bg-[#2C74B3] text-white text-xs">
+                        {product.category}
+                      </Badge>
+                    </div>
+                    <p className="text-xs md:text-sm text-[#144272] mb-3">by {product.seller}</p>
+                    {userType === 'buyer' && (
+                      <Button 
+                        onClick={() => addToCart(product)}
+                        className="w-full bg-[#205295] hover:bg-[#144272] text-xs md:text-sm"
+                        size="sm"
+                      >
+                        <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                        Add to Cart
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Stories Section */}
@@ -486,7 +544,90 @@ const App = () => {
     }
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const enhanceImage = async () => {
+    if (!selectedImage) return;
+    
+    setIsEnhancingImage(true);
+    try {
+      const response = await apiService.enhanceImage(selectedImage);
+      if (response.success && response.data) {
+        setEnhancedImageUrl(response.data.image_url);
+      } else {
+        setError(response.error || 'Failed to enhance image');
+      }
+    } catch (err) {
+      setError('Failed to enhance image');
+      console.error('Error enhancing image:', err);
+    } finally {
+      setIsEnhancingImage(false);
+    }
+  };
+
+  const addProduct = async (productData: {
+    name: string;
+    price: number;
+    category: string;
+    description: string;
+  }) => {
+    setLoading(true);
+    try {
+      const imageUrl = enhancedImageUrl || imagePreview || '';
+      const response = await apiService.addProduct({
+        ...productData,
+        image_url: imageUrl,
+        artisan_id: 1 // Default artisan for demo
+      });
+      
+      if (response.success) {
+        // Reload products to show the new one
+        await loadProducts(selectedCategory || undefined);
+        setDescription('');
+        setSelectedImage(null);
+        setImagePreview(null);
+        setEnhancedImageUrl(null);
+        alert('Product added successfully!');
+      } else {
+        setError(response.error || 'Failed to add product');
+      }
+    } catch (err) {
+      setError('Failed to add product');
+      console.error('Error adding product:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderAddProduct = () => {
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      const formData = new FormData(e.target as HTMLFormElement);
+      const productData = {
+        name: formData.get('productName') as string,
+        price: parseFloat(formData.get('price') as string),
+        category: formData.get('category') as string,
+        description: description
+      };
+      
+      if (!productData.name || !productData.price || !productData.category) {
+        setError('Please fill in all required fields');
+        return;
+      }
+      
+      await addProduct(productData);
+    };
+
     return (
       <div className="min-h-screen bg-gray-50">
         {renderNavigation()}
@@ -494,72 +635,173 @@ const App = () => {
         <div className="p-4 md:p-6 max-w-2xl mx-auto">
           <h2 className="text-2xl md:text-3xl mb-4 md:mb-6 text-[#0A2647]">Add New Product</h2>
           
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
+          
           <Card>
-            <CardContent className="p-4 md:p-6 space-y-4">
-              <div>
-                <Label htmlFor="productName" className="text-sm md:text-base">Product Name</Label>
-                <Input id="productName" placeholder="Enter product name" className="text-sm md:text-base" />
-              </div>
-              
-              <div>
-                <Label htmlFor="price" className="text-sm md:text-base">Price ($)</Label>
-                <Input id="price" type="number" placeholder="Enter price" className="text-sm md:text-base" />
-              </div>
-              
-              <div>
-                <Label htmlFor="category" className="text-sm md:text-base">Category</Label>
-                <select className="w-full p-2 border rounded text-sm md:text-base" id="category">
-                  {categories.map(cat => (
-                    <option key={cat.name} value={cat.name}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <Label htmlFor="description" className="text-sm md:text-base">Description</Label>
-                <div className="flex space-x-2">
-                  <Textarea 
-                    id="description" 
-                    placeholder="Describe your product..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="flex-1 text-sm md:text-base"
+            <CardContent className="p-4 md:p-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="productName" className="text-sm md:text-base">Product Name *</Label>
+                  <Input 
+                    id="productName" 
+                    name="productName"
+                    placeholder="Enter product name" 
+                    className="text-sm md:text-base" 
+                    required 
                   />
-                  <Button 
-                    type="button" 
-                    onClick={startVoiceInput}
-                    size="sm"
-                    className={`px-2 md:px-3 ${isListening ? 'bg-red-500' : 'bg-[#205295]'} hover:bg-[#144272]`}
-                    disabled={isListening}
-                  >
-                    🎤
-                  </Button>
                 </div>
-                {isListening && (
-                  <p className="text-xs md:text-sm text-[#205295] mt-1">Listening... Speak now!</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="image" className="text-sm md:text-base">Product Image</Label>
-                <div className="border-2 border-dashed border-[#205295] rounded-lg p-6 md:p-8 text-center">
-                  <Upload className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-4 text-[#205295]" />
-                  <p className="text-[#144272] text-sm md:text-base">Click to upload or drag and drop</p>
-                  <Input type="file" accept="image/*" className="hidden" id="imageUpload" />
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="mt-4 text-sm md:text-base"
-                    onClick={() => document.getElementById('imageUpload')?.click()}
-                  >
-                    Choose File
-                  </Button>
+                
+                <div>
+                  <Label htmlFor="price" className="text-sm md:text-base">Price ($) *</Label>
+                  <Input 
+                    id="price" 
+                    name="price"
+                    type="number" 
+                    step="0.01"
+                    placeholder="Enter price" 
+                    className="text-sm md:text-base" 
+                    required 
+                  />
                 </div>
-              </div>
-              
-              <Button className="w-full bg-[#205295] hover:bg-[#144272] text-sm md:text-base">
-                Add Product
-              </Button>
+                
+                <div>
+                  <Label htmlFor="category" className="text-sm md:text-base">Category *</Label>
+                  <select 
+                    className="w-full p-2 border rounded text-sm md:text-base" 
+                    id="category"
+                    name="category"
+                    required
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map(cat => (
+                      <option key={cat.name} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="description" className="text-sm md:text-base">Description</Label>
+                  <div className="flex space-x-2">
+                    <Textarea 
+                      id="description" 
+                      name="description"
+                      placeholder="Describe your product..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="flex-1 text-sm md:text-base"
+                    />
+                    <Button 
+                      type="button" 
+                      onClick={startVoiceInput}
+                      size="sm"
+                      className={`px-2 md:px-3 ${isListening ? 'bg-red-500' : 'bg-[#205295]'} hover:bg-[#144272]`}
+                      disabled={isListening}
+                    >
+                      🎤
+                    </Button>
+                  </div>
+                  {isListening && (
+                    <p className="text-xs md:text-sm text-[#205295] mt-1">Listening... Speak now!</p>
+                  )}
+                </div>
+                
+                <div>
+                  <Label htmlFor="image" className="text-sm md:text-base">Product Image</Label>
+                  <div className="border-2 border-dashed border-[#205295] rounded-lg p-6 md:p-8 text-center">
+                    {imagePreview ? (
+                      <div className="space-y-4">
+                        <img 
+                          src={imagePreview} 
+                          alt="Preview" 
+                          className="max-h-48 mx-auto rounded"
+                        />
+                        <div className="space-x-2">
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm"
+                            onClick={enhanceImage}
+                            disabled={isEnhancingImage}
+                            className="text-sm md:text-base"
+                          >
+                            {isEnhancingImage ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Enhancing...
+                              </>
+                            ) : (
+                              'Enhance Image'
+                            )}
+                          </Button>
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setSelectedImage(null);
+                              setImagePreview(null);
+                              setEnhancedImageUrl(null);
+                            }}
+                            className="text-sm md:text-base"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                        {enhancedImageUrl && (
+                          <div className="mt-4">
+                            <p className="text-sm text-green-600 mb-2">Enhanced Image:</p>
+                            <img 
+                              src={enhancedImageUrl} 
+                              alt="Enhanced Preview" 
+                              className="max-h-48 mx-auto rounded"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 md:w-12 md:h-12 mx-auto mb-4 text-[#205295]" />
+                        <p className="text-[#144272] text-sm md:text-base">Click to upload or drag and drop</p>
+                        <Input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          id="imageUpload"
+                          onChange={handleImageUpload}
+                        />
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          size="sm"
+                          className="mt-4 text-sm md:text-base"
+                          onClick={() => document.getElementById('imageUpload')?.click()}
+                        >
+                          Choose File
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <Button 
+                  type="submit"
+                  className="w-full bg-[#205295] hover:bg-[#144272] text-sm md:text-base"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adding Product...
+                    </>
+                  ) : (
+                    'Add Product'
+                  )}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </div>
