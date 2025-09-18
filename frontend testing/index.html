@@ -3,31 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Varnika - API Tester</title>
-    <style>
-        body { font-family: sans-serif; margin: 2rem; }
-        h1 { text-align: center; }
-        form { display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; }
-        label, textarea, button { margin-top: 1rem; }
-        #result { white-space: pre-wrap; margin-top: 2rem; padding: 1rem; border: 1px solid #ccc; background: #f9f9f9; }
-    </style>
+    <title>Varnika - AI Services</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Test Your Backend API</h1>
-    <form id="content-form">
-        <label for="product_type">Product Type:</label>
-        <input type="text" id="product_type" name="product_type" value="hand-painted vase">
+    <header>
+        <h1>Varnika: Your AI Artisan Assistant</h1>
+    </header>
+    <main>
+        <section id="text-section">
+            <h2>Generate Product Descriptions</h2>
+            <form id="text-form">
+                <label for="product_type">Product Type:</label>
+                <input type="text" id="product_type" placeholder="e.g., Hand-painted Ceramic Vase" required>
+                <label for="keywords">Keywords:</label>
+                <textarea id="keywords" rows="4" placeholder="e.g., floral, rustic, handmade" required></textarea>
+                <button type="submit">Generate Content</button>
+            </form>
+            <div id="text-result-section" class="result-box">
+                <p id="description"></p>
+                <pre id="captions"></pre>
+            </div>
+        </section>
 
-        <label for="keywords">Keywords:</label>
-        <textarea id="keywords" name="keywords" rows="4">floral design, ceramic, handmade</textarea>
-
-        <button type="submit">Send to Backend</button>
-    </form>
-
-    <div id="result">
-        Generated content will appear here.
-    </div>
-
+        <section id="image-section">
+            <h2>Enhance Product Photos</h2>
+            <form id="image-form">
+                <label for="image-upload">Upload an image:</label>
+                <input type="file" id="image-upload" name="image" accept="image/*" required>
+                <label for="image-prompt">Describe the professional look you want:</label>
+                <input type="text" id="image-prompt" placeholder="e.g., soft studio lighting, white background">
+                <button type="submit">Enhance Image</button>
+            </form>
+            <div id="image-result-section" class="result-box">
+                <p>Generated image will appear here:</p>
+                <img id="generated-image" src="" alt="Generated Image">
+            </div>
+        </section>
+    </main>
     <script src="script.js"></script>
 </body>
 </html>
