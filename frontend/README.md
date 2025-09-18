@@ -1,7 +1,7 @@
 
-  # Handicraft Web App
+  # Handicraft Web App Design
 
-  This is a code bundle for Handicraft Web App. The original project is available at https://www.figma.com/design/wCqpFuggNzOI0f380rxo9K/Handicraft-Web-App.
+  This is a code bundle for Handicraft Web App Design. The original project is available at https://www.figma.com/design/inb98GhyoVTLALlofJ2jPK/Handicraft-Web-App-Design.
 
   ## Running the code
 

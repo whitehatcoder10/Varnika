@@ -127,6 +127,23 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Remove focus outlines for category items and other interactive elements */
+  .category-item:focus,
+  .category-item:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide scrollbar for horizontal scroll areas */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /**
