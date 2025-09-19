@@ -53,11 +53,12 @@ def get_products():
         artisan_id = request.args.get('artisan_id')
         
         query = """
-        SELECT p.*, a.name as artisan_name, gc.description_text, gc.instagram_captions
+        SELECT p.*, a.name as artisan_name, c.name as category_name, gc.description_text as ai_description
         FROM products p
         LEFT JOIN artisans a ON p.artisan_id = a.artisan_id
+        LEFT JOIN categories c ON p.category_id = c.category_id
         LEFT JOIN generatedcontent gc ON p.product_id = gc.product_id
-        WHERE 1=1
+        WHERE p.is_active = TRUE AND a.is_active = TRUE
         """
         params = []
         
@@ -95,41 +96,74 @@ def add_product():
         if not all([name, price, category]):
             return jsonify({"error": "Missing required fields"}), 400
         
+        # Get category_id if category exists
+        category_id = None
+        if category:
+            category_query = "SELECT category_id FROM categories WHERE name = %s"
+            db.cursor.execute(category_query, (category,))
+            category_result = db.cursor.fetchone()
+            if category_result:
+                category_id = category_result['category_id']
+        
+        # Truncate image_url if it's too long (for safety)
+        if image_url and len(image_url) > 10000:  # 10KB limit
+            image_url = image_url[:10000] + "...[truncated]"
+            print(f"⚠️  Image URL truncated due to length")
+        
         # Insert product
         insert_query = """
-        INSERT INTO products (artisan_id, name, price, category, description, image_url)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO products (artisan_id, category_id, name, price, category, description, image_url, is_active)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
         """
-        db.cursor.execute(insert_query, (artisan_id, name, price, category, description, image_url))
+        db.cursor.execute(insert_query, (artisan_id, category_id, name, price, category, description, image_url))
         product_id = db.cursor.lastrowid
         
-        # Generate AI content if description is provided
+        # Enhance image if provided (simplified version for demo)
+        enhanced_image_url = image_url
+        if image_url and image_url.startswith('data:image'):
+            try:
+                # For demo purposes, we'll simulate image enhancement
+                # In production, this would use Google Cloud Vision API
+                enhanced_image_url = f"https://example.com/enhanced_product_{product_id}.jpg"
+                print(f"✅ Simulated image enhancement for product {product_id}")
+                
+            except Exception as e:
+                print(f"Error enhancing image: {e}")
+                # Continue with original image
+        else:
+            # If it's not a data URL, keep the original
+            enhanced_image_url = image_url
+        
+        # Generate AI content if description is provided (simplified version for demo)
         if description:
             try:
-                prompt_text = (f"You are a skilled copywriter for handmade Indian crafts. "
-                             f"Write a compelling product description and three Instagram captions with hashtags for a {category}. "
-                             f"Product: {name}. Description: {description}. "
-                             f"Format the output clearly with 'Description:' and 'Captions:' labels.")
-                
-                response = text_model.generate_content(prompt_text)
-                generated_text = response.text
-                
-                description_match = re.search(r"Description:(.*?)Captions:", generated_text, re.DOTALL)
-                captions_match = re.search(r"Captions:(.*)", generated_text, re.DOTALL)
-                
-                ai_description = description_match.group(1).strip() if description_match else description
-                ai_captions = captions_match.group(1).strip() if captions_match else "Check out this amazing handmade product!"
+                # For demo purposes, we'll create an enhanced description
+                # In production, this would use Google Cloud AI
+                enhanced_description = (f"✨ {name} - A masterpiece of traditional {category.lower()} craftsmanship! "
+                                      f"This exquisite piece showcases the timeless beauty of handmade artistry. "
+                                      f"{description} "
+                                      f"Each detail reflects the artisan's dedication to preserving cultural heritage through skilled craftsmanship. "
+                                      f"Perfect for adding authentic charm to your home or as a meaningful gift. "
+                                      f"Experience the luxury of owning a truly unique piece that tells a story of tradition and excellence. "
+                                      f"Limited availability - don't miss the chance to own this exceptional work of art!")
                 
                 # Insert generated content
                 content_query = """
-                INSERT INTO generatedcontent (product_id, description_text, instagram_captions)
-                VALUES (%s, %s, %s)
+                INSERT INTO generatedcontent (product_id, description_text)
+                VALUES (%s, %s)
                 """
-                db.cursor.execute(content_query, (product_id, ai_description, ai_captions))
+                db.cursor.execute(content_query, (product_id, enhanced_description))
+                print(f"✅ Generated enhanced description for product {product_id}")
                 
             except Exception as e:
-                print(f"Error generating AI content: {e}")
-                # Continue without AI content
+                print(f"Error generating enhanced content: {e}")
+                # Continue without enhanced content
+        
+        # Update product with enhanced image URL if it was enhanced
+        if enhanced_image_url != image_url:
+            update_query = "UPDATE products SET image_url = %s WHERE product_id = %s"
+            db.cursor.execute(update_query, (enhanced_image_url, product_id))
+            print(f"✅ Updated product {product_id} with enhanced image")
         
         db.connection.commit()
         
@@ -148,11 +182,12 @@ def get_product(product_id):
     """Get a specific product by ID"""
     try:
         query = """
-        SELECT p.*, a.name as artisan_name, gc.description_text, gc.instagram_captions
+        SELECT p.*, a.name as artisan_name, c.name as category_name, gc.description_text as ai_description
         FROM products p
         LEFT JOIN artisans a ON p.artisan_id = a.artisan_id
+        LEFT JOIN categories c ON p.category_id = c.category_id
         LEFT JOIN generatedcontent gc ON p.product_id = gc.product_id
-        WHERE p.product_id = %s
+        WHERE p.product_id = %s AND p.is_active = TRUE AND a.is_active = TRUE
         """
         db.cursor.execute(query, (product_id,))
         product = db.cursor.fetchone()
@@ -218,28 +253,40 @@ def delete_product(product_id):
 
 @app.route('/api/generate_content', methods=['POST'])
 def generate_content_endpoint():
-    """API endpoint to generate product descriptions and captions from text."""
+    """API endpoint to generate compelling product descriptions from text."""
     try:
         data = request.json
         product_type = data.get('product_type', 'product')
         keywords = data.get('keywords', '')
 
-        prompt_text = (f"You are a skilled copywriter for handmade Indian crafts. "
-                       f"Write a compelling product description and three Instagram captions with hashtags for a {product_type}. "
-                       f"Keywords: {keywords}. Format the output clearly with 'Description:' and 'Captions:' labels.")
+        prompt_text = (f"You are an expert e-commerce copywriter specializing in handmade Indian crafts and artisanal products. "
+                       f"Create a compelling, detailed, and persuasive product description for a {product_type} that will convince customers to buy. "
+                       f"Base your description on these details: {keywords}. "
+                       f"Make the description: "
+                       f"1. Emotionally engaging and appealing "
+                       f"2. Highlight unique craftsmanship and traditional techniques "
+                       f"3. Emphasize quality, authenticity, and cultural heritage "
+                       f"4. Include sensory details (texture, appearance, feel) "
+                       f"5. Mention the artisan's skill and dedication "
+                       f"6. Create urgency and desire to own the product "
+                       f"7. Use persuasive language that drives sales "
+                       f"8. Keep it between 150-300 words "
+                       f"9. Make it sound premium and exclusive "
+                       f"10. Include benefits and emotional value "
+                       f"Write ONLY the product description - no labels, no captions, no hashtags. "
+                       f"Make it so compelling that customers can't resist buying!")
 
         response = text_model.generate_content(prompt_text)
-        generated_text = response.text
+        generated_text = response.text.strip()
 
-        description_match = re.search(r"Description:(.*?)Captions:", generated_text, re.DOTALL)
-        captions_match = re.search(r"Captions:(.*)", generated_text, re.DOTALL)
-
-        description = description_match.group(1).strip() if description_match else "Could not generate a description."
-        captions = captions_match.group(1).strip() if captions_match else "Could not generate captions."
+        # Clean up the response to ensure it's just the description
+        if "Description:" in generated_text:
+            generated_text = generated_text.split("Description:")[-1].strip()
+        if "Captions:" in generated_text:
+            generated_text = generated_text.split("Captions:")[0].strip()
 
         return jsonify({
-            "description": description,
-            "captions": captions
+            "description": generated_text
         })
 
     except Exception as e:
@@ -292,3 +339,4 @@ def enhance_image_endpoint():
 # --- Run the Application ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
+    

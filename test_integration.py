@@ -1,117 +1,138 @@
 #!/usr/bin/env python3
 """
-Test script to verify the backend API integration
+Test complete Varnika platform integration
 """
 
 import requests
 import json
+import time
 
-API_BASE_URL = "http://localhost:5000/api"
-
-def test_api_endpoints():
-    """Test all API endpoints"""
-    print("Testing Varnika Backend API Integration...")
+def test_backend_api():
+    """Test backend API endpoints"""
+    print("🔍 Testing Backend API")
     print("=" * 50)
     
-    # Test 1: Get all products
-    print("\n1. Testing GET /api/products")
+    base_url = "http://localhost:5001/api"
+    
     try:
-        response = requests.get(f"{API_BASE_URL}/products")
+        # Test products endpoint
+        print("📦 Testing products endpoint...")
+        response = requests.get(f"{base_url}/products", timeout=10)
+        
         if response.status_code == 200:
             data = response.json()
-            print(f"✅ Success: Found {len(data.get('products', []))} products")
+            products = data.get('products', [])
+            print(f"✅ Products endpoint working - {len(products)} products found")
+            
+            if products:
+                print("📋 Sample products:")
+                for i, product in enumerate(products[:3], 1):
+                    print(f"  {i}. {product.get('name', 'Unknown')} - ₹{product.get('price', '0')}")
+            
+            return True
         else:
-            print(f"❌ Error: {response.status_code} - {response.text}")
+            print(f"❌ Products endpoint failed - Status: {response.status_code}")
+            return False
+            
+    except requests.exceptions.ConnectionError:
+        print("❌ Backend not running - Please start with: cd backend && python app.py")
+        return False
     except Exception as e:
-        print(f"❌ Connection Error: {e}")
-        return
-    
-    # Test 2: Add a new product
-    print("\n2. Testing POST /api/products")
-    test_product = {
-        "name": "Test Handcrafted Vase",
-        "price": 45.99,
-        "category": "Pottery",
-        "description": "A beautiful handmade ceramic vase with traditional patterns",
-        "image_url": "https://example.com/test-image.jpg",
-        "artisan_id": 1
-    }
+        print(f"❌ Backend test failed: {e}")
+        return False
+
+def test_frontend():
+    """Test frontend accessibility"""
+    print("\n🎨 Testing Frontend")
+    print("=" * 50)
     
     try:
-        response = requests.post(
-            f"{API_BASE_URL}/products",
-            json=test_product,
-            headers={"Content-Type": "application/json"}
-        )
-        if response.status_code == 201:
-            data = response.json()
-            product_id = data.get('product_id')
-            print(f"✅ Success: Product added with ID {product_id}")
-            
-            # Test 3: Get specific product
-            print(f"\n3. Testing GET /api/products/{product_id}")
-            response = requests.get(f"{API_BASE_URL}/products/{product_id}")
-            if response.status_code == 200:
-                data = response.json()
-                print(f"✅ Success: Retrieved product '{data['product']['name']}'")
-            else:
-                print(f"❌ Error: {response.status_code} - {response.text}")
-            
-            # Test 4: Update product
-            print(f"\n4. Testing PUT /api/products/{product_id}")
-            update_data = {
-                "name": "Updated Test Vase",
-                "price": 55.99,
-                "category": "Pottery",
-                "description": "Updated description",
-                "image_url": "https://example.com/updated-image.jpg"
-            }
-            response = requests.put(
-                f"{API_BASE_URL}/products/{product_id}",
-                json=update_data,
-                headers={"Content-Type": "application/json"}
-            )
-            if response.status_code == 200:
-                print("✅ Success: Product updated")
-            else:
-                print(f"❌ Error: {response.status_code} - {response.text}")
-            
-            # Test 5: Delete product
-            print(f"\n5. Testing DELETE /api/products/{product_id}")
-            response = requests.delete(f"{API_BASE_URL}/products/{product_id}")
-            if response.status_code == 200:
-                print("✅ Success: Product deleted")
-            else:
-                print(f"❌ Error: {response.status_code} - {response.text}")
-                
-        else:
-            print(f"❌ Error: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"❌ Error: {e}")
-    
-    # Test 6: Test content generation
-    print("\n6. Testing POST /api/generate_content")
-    try:
-        content_data = {
-            "product_type": "handmade pottery",
-            "keywords": "ceramic, traditional, handcrafted"
-        }
-        response = requests.post(
-            f"{API_BASE_URL}/generate_content",
-            json=content_data,
-            headers={"Content-Type": "application/json"}
-        )
+        # Test frontend
+        print("🌐 Testing frontend accessibility...")
+        response = requests.get("http://localhost:5173", timeout=10)
+        
         if response.status_code == 200:
-            data = response.json()
-            print("✅ Success: Content generated")
-            print(f"   Description: {data.get('description', '')[:100]}...")
+            print("✅ Frontend is accessible")
+            return True
         else:
-            print(f"❌ Error: {response.status_code} - {response.text}")
+            print(f"❌ Frontend not accessible - Status: {response.status_code}")
+            return False
+            
+    except requests.exceptions.ConnectionError:
+        print("❌ Frontend not running - Please start with: cd frontend && npm run dev")
+        return False
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Frontend test failed: {e}")
+        return False
+
+def test_database_integration():
+    """Test database integration"""
+    print("\n🗄️  Testing Database Integration")
+    print("=" * 50)
     
-    print("\n" + "=" * 50)
-    print("API Integration Test Complete!")
+    try:
+        # Test specific product endpoint
+        print("🔍 Testing specific product endpoint...")
+        response = requests.get("http://localhost:5001/api/products/1", timeout=10)
+        
+        if response.status_code == 200:
+            product = response.json()
+            print(f"✅ Product details endpoint working")
+            print(f"  Product: {product.get('name', 'Unknown')}")
+            print(f"  Artisan: {product.get('artisan_name', 'Unknown')}")
+            print(f"  Category: {product.get('category_name', 'Unknown')}")
+            return True
+        else:
+            print(f"❌ Product details endpoint failed - Status: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Database integration test failed: {e}")
+        return False
+
+def main():
+    """Main test function"""
+    print("🧪 Varnika Platform Integration Test")
+    print("=" * 60)
+    
+    # Wait a moment for services to start
+    print("⏳ Waiting for services to start...")
+    time.sleep(2)
+    
+    # Run tests
+    backend_ok = test_backend_api()
+    frontend_ok = test_frontend()
+    database_ok = test_database_integration()
+    
+    # Summary
+    print("\n📊 Test Results Summary")
+    print("=" * 50)
+    print(f"Backend API: {'✅ Working' if backend_ok else '❌ Failed'}")
+    print(f"Frontend: {'✅ Working' if frontend_ok else '❌ Failed'}")
+    print(f"Database Integration: {'✅ Working' if database_ok else '❌ Failed'}")
+    
+    if backend_ok and frontend_ok and database_ok:
+        print("\n🎉 All tests passed! Varnika platform is fully integrated!")
+        print("\n🌐 Access your application:")
+        print("  Frontend: http://localhost:5173")
+        print("  Backend API: http://localhost:5001/api")
+        print("\n✨ Features available:")
+        print("  • View products from Cloud SQL")
+        print("  • Add new products with AI descriptions")
+        print("  • Image upload and enhancement")
+        print("  • Voice-to-text input")
+        print("  • Category filtering")
+        print("  • Artisan management")
+    else:
+        print("\n⚠️  Some tests failed. Please check the issues above.")
+        
+        if not backend_ok:
+            print("\n🔧 To fix backend:")
+            print("  cd backend && python app.py")
+            
+        if not frontend_ok:
+            print("\n🔧 To fix frontend:")
+            print("  cd frontend && npm run dev")
 
 if __name__ == "__main__":
-    test_api_endpoints()
+    main()

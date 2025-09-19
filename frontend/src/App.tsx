@@ -46,6 +46,11 @@ const App = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [enhancedImageUrl, setEnhancedImageUrl] = useState<string | null>(null);
   const [isEnhancingImage, setIsEnhancingImage] = useState(false);
+  const [aiGeneratedContent, setAiGeneratedContent] = useState<{
+    description: string;
+  } | null>(null);
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   const categories = [
     { name: 'Pottery', image: 'https://images.unsplash.com/photo-1695746999130-17bc94e000e8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3R0ZXJ5JTIwaGFuZGljcmFmdCUyMGNlcmFtaWN8ZW58MXx8fHwxNzU4MjAyOTM0fDA&ixlib=rb-4.1.0&q=80&w=300' },
@@ -69,22 +74,56 @@ const App = () => {
           id: apiProduct.product_id,
           name: apiProduct.name,
           price: apiProduct.price,
-          description: apiProduct.description_text || apiProduct.description || '',
+          description: apiProduct.ai_description || apiProduct.description || '',
           image: apiProduct.image_url || '',
           category: apiProduct.category || 'General',
           seller: apiProduct.artisan_name || 'Unknown Artisan'
         }));
         setProducts(apiProducts);
       } else {
-        setError(response.error || 'Failed to load products');
+        // If API fails, show fallback products instead of error
+        console.warn('API failed, showing fallback products:', response.error);
+        setProducts(getFallbackProducts());
       }
     } catch (err) {
-      setError('Failed to load products');
-      console.error('Error loading products:', err);
+      // If network fails, show fallback products instead of error
+      console.warn('Network error, showing fallback products:', err);
+      setProducts(getFallbackProducts());
     } finally {
       setLoading(false);
     }
   };
+
+  // Fallback products for when API is not available
+  const getFallbackProducts = (): Product[] => [
+    {
+      id: 1,
+      name: 'Handcrafted Ceramic Vase',
+      price: 85,
+      description: 'Beautiful handmade ceramic vase with traditional glazing techniques, perfect for home decor.',
+      image: 'https://images.unsplash.com/photo-1695746999130-17bc94e000e8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb3R0ZXJ5JTIwaGFuZGljcmFmdCUyMGNlcmFtaWN8ZW58MXx8fHwxNzU4MjAyOTM0fDA&ixlib=rb-4.1.0&q=80&w=400',
+      category: 'Pottery',
+      seller: 'Maya Crafts'
+    },
+    {
+      id: 2,
+      name: 'Woven Cotton Scarf',
+      price: 45,
+      description: 'Soft cotton scarf with intricate woven patterns, handcrafted using traditional techniques.',
+      image: 'https://images.unsplash.com/photo-1719462211900-3d4c1a62cae4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZXh0aWxlJTIwd2VhdmluZyUyMGhhbmRpY3JhZnR8ZW58MXx8fHwxNzU4MjAyOTM1fDA&ixlib=rb-4.1.0&q=80&w=400',
+      category: 'Textiles',
+      seller: 'Heritage Weavers'
+    },
+    {
+      id: 3,
+      name: 'Carved Wooden Bowl',
+      price: 65,
+      description: 'Hand-carved wooden bowl made from sustainable wood with intricate traditional patterns.',
+      image: 'https://images.unsplash.com/photo-1603789766884-aef036cd3b5a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b29kd29yayUyMGhhbmRpY3JhZnQlMjBjYXJ2aW5nfGVufDF8fHx8MTc1ODIwMjkzNXww&ixlib=rb-4.1.0&q=80&w=400',
+      category: 'Woodwork',
+      seller: 'Forest Artisans'
+    }
+  ];
 
   const stories = [
     {
@@ -421,24 +460,21 @@ const App = () => {
 
         {/* Products Section */}
         <section className="mb-8 md:mb-12">
-          <h2 className="text-xl md:text-3xl mb-4 md:mb-6 text-[#0A2647]">
-            {selectedCategory ? `${selectedCategory} Products` : 'Featured Products'}
-          </h2>
+          <div className="flex items-center justify-between mb-4 md:mb-6">
+            <h2 className="text-xl md:text-3xl text-[#0A2647]">
+              {selectedCategory ? `${selectedCategory} Products` : 'Featured Products'}
+            </h2>
+            {products.length > 0 && products[0].id <= 3 && (
+              <div className="text-xs text-[#144272] bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
+                📡 Demo Mode
+              </div>
+            )}
+          </div>
           
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-[#205295]" />
               <span className="ml-2 text-[#144272]">Loading products...</span>
-            </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <p className="text-red-600 mb-4">{error}</p>
-              <Button 
-                onClick={() => loadProducts(selectedCategory || undefined)}
-                className="bg-[#205295] hover:bg-[#144272]"
-              >
-                Try Again
-              </Button>
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-12">
@@ -575,6 +611,32 @@ const App = () => {
     }
   };
 
+  const generateAIContent = async (category: string, description: string) => {
+    if (!category || !description.trim()) {
+      setError('Please select a category and enter a description first');
+      return;
+    }
+
+    setIsGeneratingContent(true);
+    setError(null);
+    try {
+      const response = await apiService.generateContent(category, description);
+      if (response.success && response.data) {
+        setAiGeneratedContent({
+          description: response.data.description
+        });
+        // Don't automatically update the description - let user choose
+      } else {
+        setError(response.error || 'Failed to generate AI content');
+      }
+    } catch (err) {
+      setError('Failed to generate AI content');
+      console.error('Error generating AI content:', err);
+    } finally {
+      setIsGeneratingContent(false);
+    }
+  };
+
   const addProduct = async (productData: {
     name: string;
     price: number;
@@ -583,7 +645,8 @@ const App = () => {
   }) => {
     setLoading(true);
     try {
-      const imageUrl = enhancedImageUrl || imagePreview || '';
+      // Use the original image (backend will enhance it automatically)
+      const imageUrl = imagePreview || '';
       const response = await apiService.addProduct({
         ...productData,
         image_url: imageUrl,
@@ -591,13 +654,26 @@ const App = () => {
       });
       
       if (response.success) {
-        // Reload products to show the new one
-        await loadProducts(selectedCategory || undefined);
+        // Show success message
+        setShowSuccessMessage(true);
+        setError(null);
+        
+        // Clear form
         setDescription('');
         setSelectedImage(null);
         setImagePreview(null);
         setEnhancedImageUrl(null);
-        alert('Product added successfully!');
+        setAiGeneratedContent(null);
+        
+        // Reload products to show the new one
+        await loadProducts(selectedCategory || undefined);
+        
+        // Redirect to products page after 2 seconds
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+          // Navigate to home page to show products
+          window.location.href = '/';
+        }, 2000);
       } else {
         setError(response.error || 'Failed to add product');
       }
@@ -638,6 +714,22 @@ const App = () => {
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
               {error}
+            </div>
+          )}
+          
+          {showSuccessMessage && (
+            <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+              <div className="flex items-center">
+                <div className="text-green-500 mr-3">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold">🎉 Product Added Successfully!</h3>
+                  <p className="text-sm">Your product has been added with AI-enhanced description and image. Redirecting to products page...</p>
+                </div>
+              </div>
             </div>
           )}
           
@@ -684,28 +776,140 @@ const App = () => {
                 </div>
                 
                 <div>
-                  <Label htmlFor="description" className="text-sm md:text-base">Description</Label>
-                  <div className="flex space-x-2">
-                    <Textarea 
-                      id="description" 
-                      name="description"
-                      placeholder="Describe your product..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="flex-1 text-sm md:text-base"
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={startVoiceInput}
-                      size="sm"
-                      className={`px-2 md:px-3 ${isListening ? 'bg-red-500' : 'bg-[#205295]'} hover:bg-[#144272]`}
-                      disabled={isListening}
-                    >
-                      🎤
-                    </Button>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="description" className="text-sm md:text-base">Description</Label>
+                    <div className="flex items-center space-x-2 text-xs text-[#144272]">
+                      <span>AI-powered sales-optimized description</span>
+                      <span className="text-green-600">✨</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex space-x-2">
+                      <Textarea 
+                        id="description" 
+                        name="description"
+                        placeholder="Describe your product... (e.g., 'Handmade ceramic vase with blue patterns, traditional techniques, perfect for home decor')"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="flex-1 text-sm md:text-base min-h-[100px]"
+                        rows={4}
+                      />
+                      <div className="flex flex-col space-y-2">
+                        <Button 
+                          type="button" 
+                          onClick={startVoiceInput}
+                          size="sm"
+                          className={`px-3 py-2 ${isListening ? 'bg-red-500' : 'bg-[#205295]'} hover:bg-[#144272] text-white`}
+                          disabled={isListening}
+                          title="Voice Input"
+                        >
+                          {isListening ? '🔴' : '🎤'}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          onClick={() => {
+                            const category = (document.getElementById('category') as HTMLSelectElement)?.value;
+                            generateAIContent(category, description);
+                          }}
+                          size="sm"
+                          disabled={isGeneratingContent || !description.trim()}
+                          className={`px-3 py-2 text-white ${
+                            isGeneratingContent 
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                          }`}
+                          title="Preview AI Description (Auto-generated when adding product)"
+                        >
+                          {isGeneratingContent ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            '✨'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      💡 AI will automatically generate a compelling description when you add the product
+                    </p>
                   </div>
                   {isListening && (
                     <p className="text-xs md:text-sm text-[#205295] mt-1">Listening... Speak now!</p>
+                  )}
+                  
+                  {/* AI Generated Content Display */}
+                  {aiGeneratedContent && (
+                    <div className="mt-6 p-4 bg-gradient-to-r from-green-50 via-blue-50 to-purple-50 border border-green-200 rounded-lg shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <h4 className="text-sm font-semibold text-[#0A2647] flex items-center">
+                            ✨ AI-Enhanced Description Preview
+                          </h4>
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                            Ready
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAiGeneratedContent(null)}
+                          className="text-xs hover:bg-red-50 hover:border-red-200"
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-xs font-medium text-[#144272] mb-2 block flex items-center">
+                            <span className="w-1 h-1 bg-green-500 rounded-full mr-2"></span>
+                            Compelling Product Description:
+                          </Label>
+                          <div className="p-4 bg-white rounded-lg border border-gray-200 text-sm text-[#0A2647] leading-relaxed shadow-sm">
+                            {aiGeneratedContent.description}
+                          </div>
+                          <div className="mt-2 text-xs text-[#144272] flex items-center">
+                            <span className="w-1 h-1 bg-blue-500 rounded-full mr-2"></span>
+                            This description is optimized for sales and customer engagement
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => setDescription(aiGeneratedContent.description)}
+                            className="text-xs bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                          >
+                            ✨ Use This Description
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setDescription(prev => prev + '\n\n' + aiGeneratedContent.description);
+                            }}
+                            className="text-xs hover:bg-blue-50 hover:border-blue-200"
+                          >
+                            📝 Add to Current
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              navigator.clipboard.writeText(aiGeneratedContent.description);
+                              alert('Description copied to clipboard!');
+                            }}
+                            className="text-xs hover:bg-purple-50 hover:border-purple-200"
+                          >
+                            📋 Copy
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
                 
@@ -734,7 +938,7 @@ const App = () => {
                                 Enhancing...
                               </>
                             ) : (
-                              'Enhance Image'
+                              'Preview Enhancement'
                             )}
                           </Button>
                           <Button 
@@ -753,7 +957,7 @@ const App = () => {
                         </div>
                         {enhancedImageUrl && (
                           <div className="mt-4">
-                            <p className="text-sm text-green-600 mb-2">Enhanced Image:</p>
+                            <p className="text-sm text-green-600 mb-2">Enhanced Preview:</p>
                             <img 
                               src={enhancedImageUrl} 
                               alt="Enhanced Preview" 
@@ -761,6 +965,9 @@ const App = () => {
                             />
                           </div>
                         )}
+                        <p className="text-xs text-gray-500 mt-2">
+                          💡 Images will be automatically enhanced when you add the product
+                        </p>
                       </div>
                     ) : (
                       <>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database migration script to add missing fields to the products table
+Database migration script to set up the complete Varnika database schema
 """
 
 import mysql.connector
@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def migrate_database():
-    """Add missing fields to the products table"""
+    """Set up the complete database schema"""
     try:
         # Connect to database
         connection = mysql.connector.connect(
@@ -23,33 +23,56 @@ def migrate_database():
         cursor = connection.cursor()
         
         print("Connected to database successfully.")
+        print("Setting up complete Varnika database schema...")
         
-        # Add missing columns to products table
-        migrations = [
-            "ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(100) DEFAULT 'General'",
-            "ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT",
-        ]
+        # Read and execute the complete schema
+        with open('complete_schema.sql', 'r') as file:
+            schema_sql = file.read()
         
-        for migration in migrations:
+        # Split the SQL into individual statements
+        statements = [stmt.strip() for stmt in schema_sql.split(';') if stmt.strip() and not stmt.strip().startswith('--')]
+        
+        executed_count = 0
+        for statement in statements:
             try:
-                cursor.execute(migration)
-                print(f"✓ Executed: {migration}")
+                if statement:
+                    cursor.execute(statement)
+                    executed_count += 1
+                    print(f"✓ Executed statement {executed_count}")
             except mysql.connector.Error as e:
-                if "Duplicate column name" in str(e):
-                    print(f"⚠ Column already exists: {migration}")
+                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                    print(f"⚠ Skipped (already exists): {statement[:50]}...")
                 else:
-                    print(f"✗ Error executing migration: {e}")
+                    print(f"✗ Error executing statement: {e}")
+                    print(f"Statement: {statement[:100]}...")
         
         # Commit changes
         connection.commit()
-        print("✓ Database migration completed successfully!")
+        print(f"✓ Database migration completed successfully! Executed {executed_count} statements.")
+        
+        # Verify the setup
+        cursor.execute("SELECT COUNT(*) FROM categories")
+        categories_count = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM artisans")
+        artisans_count = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM products")
+        products_count = cursor.fetchone()[0]
+        
+        print(f"✓ Database verification:")
+        print(f"  - Categories: {categories_count}")
+        print(f"  - Artisans: {artisans_count}")
+        print(f"  - Products: {products_count}")
         
     except mysql.connector.Error as e:
         print(f"✗ Database error: {e}")
+    except FileNotFoundError:
+        print("✗ Error: complete_schema.sql file not found. Please ensure it's in the same directory.")
     except Exception as e:
         print(f"✗ Error: {e}")
     finally:
-        if connection and connection.is_connected():
+        if 'connection' in locals() and connection.is_connected():
             cursor.close()
             connection.close()
             print("Database connection closed.")

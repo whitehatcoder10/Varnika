@@ -102,8 +102,8 @@ class ApiService {
   }
 
   // AI Content Generation APIs
-  async generateContent(productType: string, keywords: string): Promise<ApiResponse<{ description: string; captions: string }>> {
-    return this.request<{ description: string; captions: string }>('/generate_content', {
+  async generateContent(productType: string, keywords: string): Promise<ApiResponse<{ description: string }>> {
+    return this.request<{ description: string }>('/generate_content', {
       method: 'POST',
       body: JSON.stringify({ product_type: productType, keywords }),
     });
