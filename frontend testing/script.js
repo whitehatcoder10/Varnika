@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const imageForm = document.getElementById('image-form');
     const generatedImageEl = document.getElementById('generated-image');
     
-    const API_BASE_URL = 'http://127.0.0.1:5000/api';
+    const API_BASE_URL = 'https://varnika-backend.onrender.com/api';
 
     // --- Text Generation Logic ---
     textForm.addEventListener('submit', async (e) => {
